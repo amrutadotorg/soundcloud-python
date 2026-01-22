@@ -2,65 +2,64 @@
 soundcloud-python
 =================
 
-A friendly wrapper around the `Soundcloud API`_, updated for **OAuth 2.1 and PKCE**.
+⚠️ Community-maintained fork
 
-.. image:: https://travis-ci.org/soundcloud/soundcloud-python.svg
-    :target: https://travis-ci.org/soundcloud/soundcloud-python
+This repository is a modernized fork of the original *soundcloud-python*
+library, which has been deprecated for many years.
 
-A friendly wrapper around the `Soundcloud API`_.
+This fork adds support for **SoundCloud API v2**, **OAuth 2.1**, and **PKCE**
+(Proof Key for Code Exchange), and is compatible with modern Python versions.
 
-.. _Soundcloud API: http://developers.soundcloud.com/
+.. image:: https://github.com/amrutadotorg/soundcloud-python/actions/workflows/tests.yml/badge.svg
+    :target: https://github.com/amrutadotorg/soundcloud-python/actions/workflows/tests.yml
+
+Overview
+--------
+
+A friendly Python wrapper around the SoundCloud API, designed for
+modern authentication flows and current API requirements.
+
+This project is **not affiliated with SoundCloud Ltd.**
+
+Requirements
+------------
+
+- Python 3.8+
+- requests
+- pytest (for running tests)
 
 Installation
 ------------
 
-To install soundcloud-python, simply: ::
+Until an official PyPI release is published, install directly from GitHub: ::
 
-    pip install soundcloud
+    pip install git+https://github.com/amrutadotorg/soundcloud-python.git
 
-Or if you're not hip to the pip: ::
+Basic Usage
+-----------
 
-    easy_install soundcloud
+To use *soundcloud-python*, first create a ``Client`` instance.
 
-Basic Use
----------
-
-To use soundcloud-python, you must first create a `Client` instance,
-passing at a minimum the client id you obtained when you `registered
-your app`_: ::
+If you only need access to public resources, a ``client_id`` is sufficient: ::
 
     import soundcloud
 
     client = soundcloud.Client(client_id=YOUR_CLIENT_ID)
 
-The client instance can then be used to fetch or modify resources: ::
-
     tracks = client.get('/tracks', limit=10)
     for track in tracks.collection:
-        print track.title
-    app = client.get('/apps/124')
-    print app.permalink_url
-
-.. _registered your app: http://soundcloud.com/you/apps/
+        print(track.title)
 
 Authentication
 --------------
 
-soundcloud-python supports **OAuth 2.1** with **PKCE** (Proof Key for Code Exchange).
+This fork supports **OAuth 2.1** with **PKCE** (Proof Key for Code Exchange).
 
-If you only need read-only access to public resources, providing a client id is enough: ::
+Authorization Code Flow (PKCE)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-    import soundcloud
-
-    client = soundcloud.Client(client_id=YOUR_CLIENT_ID)
-    track = client.get('/tracks/30709985')
-    print(track.title)
-
-If you need to access private resources or modify a resource, use the **Authorization Code Flow with PKCE**.
-
-**Authorization Code Flow (PKCE)**
-
-1. Initialize the client with your credentials and a redirect URI. A ``code_verifier`` is automatically generated: ::
+1. Initialize the client with your credentials and redirect URI.
+   A ``code_verifier`` is generated automatically: ::
 
     import soundcloud
 
@@ -69,118 +68,138 @@ If you need to access private resources or modify a resource, use the **Authoriz
         client_secret=YOUR_CLIENT_SECRET,  # Optional for public clients
         redirect_uri='https://yourapp.com/callback'
     )
-    # Redirect the user to the authorization URL
+
     print(client.authorize_url())
 
-2. After the user grants access and is redirected back to your URI, exchange the ``code`` for an access token: ::
+2. After the user authorizes your app and is redirected back,
+   exchange the authorization ``code`` for an access token: ::
 
-    token = client.exchange_token(code=request.args.get('code'))
+    token = client.exchange_token(code=AUTHORIZATION_CODE)
     print(token.access_token)
-    print(client.get('/me').username)
 
-**Refresh Token Flow**
+    me = client.get('/me')
+    print(me.username)
 
-If you have a refresh token, you can use it to obtain a new access token: ::
+Refresh Token Flow
+~~~~~~~~~~~~~~~~~
+
+If you already have a refresh token, you can use it to obtain
+a new access token: ::
 
     client = soundcloud.Client(
         client_id=YOUR_CLIENT_ID,
         client_secret=YOUR_CLIENT_SECRET,
         refresh_token=YOUR_REFRESH_TOKEN
     )
-    # The client will automatically refresh the token on initialization
 
-**User Credentials Flow (DEPRECATED)**
+    # The token is refreshed automatically on initialization
 
-The `User Credentials Flow` (password-based) is deprecated in OAuth 2.1 and will raise a ``DeprecationWarning``. It is recommended to use the Authorization Code Flow instead.
+Deprecated Flows
+~~~~~~~~~~~~~~~
+
+The **User Credentials Flow** (password-based authentication) is deprecated
+in OAuth 2.1 and will raise a ``DeprecationWarning``.
+
+Use the Authorization Code Flow with PKCE instead.
 
 Examples
 --------
 
-Resolve a track and print its id: ::
+Resolve a track and print its ID: ::
 
     import soundcloud
 
     client = soundcloud.Client(client_id=YOUR_CLIENT_ID)
 
-    track = client.get('/resolve', url='http://soundcloud.com/forss/flickermood')
+    track = client.get(
+        '/resolve',
+        url='https://soundcloud.com/forss/flickermood'
+    )
 
-    print track.id
+    print(track.id)
 
 Upload a track: ::
 
     import soundcloud
 
-    client = soundcloud.Client(access_token="a valid access token")
+    client = soundcloud.Client(access_token="VALID_ACCESS_TOKEN")
 
     track = client.post('/tracks', track={
-        'title': 'This is a sample track',
+        'title': 'Sample Track',
         'sharing': 'private',
         'asset_data': open('mytrack.mp4', 'rb')
     })
 
-    print track.title
-
-Start following a user: ::
-
-    import soundcloud
-
-    client = soundcloud.Client(access_token="a valid access token")
-    user_id_to_follow = 123
-    client.put('/me/followings/%d' % user_id_to_follow)
+    print(track.title)
 
 Update your profile description: ::
 
     import soundcloud
 
-    client = soundcloud.Client(access_token="a valid access token")
+    client = soundcloud.Client(access_token="VALID_ACCESS_TOKEN")
+
     client.put('/me', user={
-        'description': "a new description"
+        'description': "A new profile description"
     })
 
 Proxy Support
 -------------
 
-If you're behind a proxy, you can specify it when creating a client: ::
+If you are behind a proxy, you can specify it when creating a client: ::
 
     import soundcloud
 
     proxies = {
-        'http': 'example.com:8000'
+        'http': 'example.com:8000',
+        'https': 'example.com:8000',
     }
-    client = soundcloud.Client(access_token="a valid access token",
-                               proxies=proxies)
 
-The proxies kwarg is a dictionary with protocols as keys and host:port as values.
+    client = soundcloud.Client(
+        access_token="VALID_ACCESS_TOKEN",
+        proxies=proxies
+    )
 
-Redirects
----------
+Redirect Handling
+-----------------
 
-By default, 301 or 302 redirects will be followed for idempotent methods. There are certain cases where you may want to disable this, for example: ::
+By default, HTTP 301 and 302 redirects are followed for idempotent methods.
+You can disable this behavior if needed: ::
 
     import soundcloud
 
-    client = soundcloud.Client(access_token="a valid access token")
-    track = client.get('/tracks/293/stream', allow_redirects=False)
-    print track.location
+    client = soundcloud.Client(access_token="VALID_ACCESS_TOKEN")
 
-Will print a tracks streaming URL. If ``allow_redirects`` was omitted, a binary stream would be returned instead.
+    response = client.get(
+        '/tracks/293/stream',
+        allow_redirects=False
+    )
+
+    print(response.location)
 
 Running Tests
 -------------
 
-Tests are written using `pytest`. To run them: ::
+Tests are written using **pytest**.
 
-    $ pip install -r requirements.txt
-    $ pytest
+To run them locally: ::
+
+    pip install -r requirements.txt
+    pytest
 
 Contributing
 ------------
 
-Contributions are awesome. You are most welcome to `submit issues`_,
-or `fork the repository`_.
+Contributions are welcome!
 
-soundcloud-python is published under a `BSD License`_.
+- Please submit issues on GitHub
+- Fork the repository and open pull requests
 
-.. _`submit issues`: https://github.com/soundcloud/soundcloud-python/issues
-.. _`fork the repository`: https://github.com/soundcloud/soundcloud-python
-.. _`BSD License`: https://github.com/soundcloud/soundcloud-python/blob/master/README
+License
+-------
+
+This project is published under the **BSD License**.
+
+.. _SoundCloud API: https://developers.soundcloud.com/
+.. _submit issues: https://github.com/amrutadotorg/soundcloud-python/issues
+.. _fork the repository: https://github.com/amrutadotorg/soundcloud-python
+.. _BSD License: https://github.com/amrutadotorg/soundcloud-python/blob/master/LICENSE
