@@ -1,12 +1,5 @@
-try:
-    import json
-except ImportError:
-    import simplejson as json
-
-try:
-    from UserList import UserList
-except ImportError:
-    from collections import UserList
+import json
+from collections import UserList
 
 
 class Resource(object):

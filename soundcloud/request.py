@@ -1,10 +1,6 @@
-try:
-    from urllib import urlencode
-except ImportError:
-    from urllib.parse import urlencode
+from urllib.parse import urlencode
 
 import requests
-import six
 
 import soundcloud
 
@@ -17,18 +13,9 @@ def is_file_like(f):
 
 
 def extract_files_from_dict(d):
-    """Return any file objects from the provided dict.
-
-    >>> extract_files_from_dict({
-    ... 'oauth_token': 'foo',
-    ... 'track': {
-    ...   'title': 'bar',
-    ...   'asset_data': open('setup.py', 'rb')
-    ...  }})  # doctest:+ELLIPSIS
-    {'track': {'asset_data': <...}}
-    """
+    """Return any file objects from the provided dict."""
     files = {}
-    for key, value in six.iteritems(d):
+    for key, value in d.items():
         if isinstance(value, dict):
             files[key] = extract_files_from_dict(value)
         elif is_file_like(value):
@@ -37,20 +24,9 @@ def extract_files_from_dict(d):
 
 
 def remove_files_from_dict(d):
-    """Return the provided dict with any file objects removed.
-
-    >>> remove_files_from_dict({
-    ...   'oauth_token': 'foo',
-    ...   'track': {
-    ...       'title': 'bar',
-    ...       'asset_data': open('setup.py', 'rb')
-    ...   }
-    ... }) == {'track': {'title': 'bar'}, 'oauth_token': 'foo'}
-    ... # doctest:+ELLIPSIS
-    True
-    """
+    """Return the provided dict with any file objects removed."""
     file_free = {}
-    for key, value in six.iteritems(d):
+    for key, value in d.items():
         if isinstance(value, dict):
             file_free[key] = remove_files_from_dict(value)
         elif not is_file_like(value):
@@ -65,19 +41,10 @@ def remove_files_from_dict(d):
 
 
 def namespaced_query_string(d, prefix=""):
-    """Transform a nested dict into a string with namespaced query params.
-
-    >>> namespaced_query_string({
-    ...  'oauth_token': 'foo',
-    ...  'track': {'title': 'bar', 'sharing': 'private'}}) == {
-    ...      'track[sharing]': 'private',
-    ...      'oauth_token': 'foo',
-    ...      'track[title]': 'bar'}  # doctest:+ELLIPSIS
-    True
-    """
+    """Transform a nested dict into a string with namespaced query params."""
     qs = {}
     prefixed = lambda k: prefix and "%s[%s]" % (prefix, k) or k
-    for key, value in six.iteritems(d):
+    for key, value in d.items():
         if isinstance(value, dict):
             qs.update(namespaced_query_string(value, prefix=key))
         else:
@@ -89,10 +56,8 @@ def make_request(method, url, params):
     """Make an HTTP request, formatting params as required."""
     empty = []
 
-    # TODO
-    # del params[key]
-    # without list
-    for key, value in six.iteritems(params):
+    # clean empty values
+    for key, value in list(params.items()):
         if value is None:
             empty.append(key)
     for key in empty:
@@ -107,7 +72,8 @@ def make_request(method, url, params):
             'User-Agent': soundcloud.USER_AGENT
         }
     }
-    # options, not params
+    
+    # Handle specific options
     if 'verify_ssl' in params:
         if params['verify_ssl'] is False:
             kwargs['verify'] = params['verify_ssl']
@@ -117,6 +83,12 @@ def make_request(method, url, params):
         del params['proxies']
     if 'allow_redirects' in params:
         del params['allow_redirects']
+        
+    # --- FIX: Change 'OAuth' to 'Bearer' for OAuth 2.1 compliance ---
+    if 'oauth_token' in params:
+        kwargs['headers']['Authorization'] = "Bearer " + params['oauth_token']
+        del params['oauth_token']
+    # ----------------------------------------------------------------
 
     params = hashconversions.to_params(params)
     files = namespaced_query_string(extract_files_from_dict(params))

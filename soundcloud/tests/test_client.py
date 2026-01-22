@@ -1,42 +1,38 @@
+import urllib.parse
+from unittest import mock
+
+import pytest
+
 import soundcloud
-
 from soundcloud.tests.utils import MockResponse
-
-try:
-    from urllib import urlencode
-except ImportError:
-    from urllib.parse import urlencode
-
-from nose.tools import eq_, raises
-from fudge import patch
 
 
 def test_kwargs_parsing_valid():
     """Test that valid kwargs are stored as properties on the client."""
     client = soundcloud.Client(client_id='foo', client_secret='foo')
     assert isinstance(client, soundcloud.Client)
-    eq_('foo', client.client_id)
+    assert client.client_id == 'foo'
     client = soundcloud.Client(client_id='foo', client_secret='bar',
                                access_token='baz', username='you',
-                               password='secret', redirect_uri='foooo')
-    eq_('foo', client.client_id)
-    eq_('baz', client.access_token)
+                               password='secret', redirect_uri='https://example.com/callback')
+    assert client.client_id == 'foo'
+    assert client.access_token == 'baz'
 
 
-@raises(AttributeError)
 def test_kwargs_parsing_invalid():
     """Test that unknown kwargs are ignored."""
     client = soundcloud.Client(foo='bar', client_id='bar')
-    client.foo
+    with pytest.raises(AttributeError):
+        client.foo
 
 
 def test_url_creation():
     """Test that resources are turned into urls properly."""
     client = soundcloud.Client(client_id='foo')
     url = client._resolve_resource_name('tracks')
-    eq_('https://api.soundcloud.com/tracks', url)
+    assert url == 'https://api.soundcloud.com/tracks'
     url = client._resolve_resource_name('/tracks/')
-    eq_('https://api.soundcloud.com/tracks', url)
+    assert url == 'https://api.soundcloud.com/tracks'
 
 
 def test_url_creation_options():
@@ -44,7 +40,7 @@ def test_url_creation_options():
     client = soundcloud.Client(client_id='foo', use_ssl=False)
     client.host = 'soundcloud.dev'
     url = client._resolve_resource_name('apps/132445')
-    eq_('http://soundcloud.dev/apps/132445', url)
+    assert url == 'http://soundcloud.dev/apps/132445'
 
 
 def test_method_dispatching():
@@ -52,26 +48,26 @@ def test_method_dispatching():
     client = soundcloud.Client(client_id='foo')
     for method in ('get', 'post', 'put', 'delete', 'head'):
         p = getattr(client, method)
-        eq_((method,), p.args)
-        eq_('_request', p.func.__name__)
+        assert p.args == (method,)
+        assert p.func.__name__ == '_request'
 
 
 def test_host_config():
     """We should be able to set the host on the client."""
     client = soundcloud.Client(client_id='foo', host='api.soundcloud.dev')
-    eq_('api.soundcloud.dev', client.host)
+    assert client.host == 'api.soundcloud.dev'
     client = soundcloud.Client(client_id='foo')
-    eq_('api.soundcloud.com', client.host)
+    assert client.host == 'api.soundcloud.com'
 
 
-@patch('requests.get')
-def test_disabling_ssl_verification(fake_get):
+@mock.patch('requests.get')
+def test_disabling_ssl_verification(mock_get):
     """We should be able to disable ssl verification when we are in dev mode"""
     client = soundcloud.Client(client_id='foo', host='api.soundcloud.dev',
                                verify_ssl=False)
     expected_url = '%s?%s' % (
         client._resolve_resource_name('tracks'),
-        urlencode({
+        urllib.parse.urlencode({
             'limit': 5,
             'client_id': 'foo'
         }))
@@ -79,24 +75,25 @@ def test_disabling_ssl_verification(fake_get):
         'User-Agent': soundcloud.USER_AGENT,
         'Accept': 'application/json'
     }
-    (fake_get.expects_call()
-             .with_args(expected_url,
-                        headers=headers,
-                        verify=False,
-                        allow_redirects=True)
-             .returns(MockResponse("{}")))
+    mock_get.return_value = MockResponse("{}")
+    
     client.get('tracks', limit=5)
+    
+    mock_get.assert_called_with(expected_url,
+                                headers=headers,
+                                verify=False,
+                                allow_redirects=True)
 
 
-@raises(AttributeError)
 def test_method_dispatching_invalid_method():
     """Test that getattr raises an attributeerror if we give it garbage."""
     client = soundcloud.Client(client_id='foo')
-    client.foo()
+    with pytest.raises(AttributeError):
+        client.foo()
 
 
-@patch('requests.get')
-def test_method_dispatching_get_request_readonly(fake_get):
+@mock.patch('requests.get')
+def test_method_dispatching_get_request_readonly(mock_get):
     """Test that calling client.get() results in a proper call
     to the get function in the requests module with the provided
     kwargs as the querystring.
@@ -104,7 +101,7 @@ def test_method_dispatching_get_request_readonly(fake_get):
     client = soundcloud.Client(client_id='foo')
     expected_url = '%s?%s' % (
         client._resolve_resource_name('tracks'),
-        urlencode({
+        urllib.parse.urlencode({
             'limit': 5,
             'client_id': 'foo'
         }))
@@ -112,14 +109,15 @@ def test_method_dispatching_get_request_readonly(fake_get):
         'User-Agent': soundcloud.USER_AGENT,
         'Accept': 'application/json'
     }
-    (fake_get.expects_call()
-             .with_args(expected_url, headers=headers, allow_redirects=True)
-             .returns(MockResponse("{}")))
+    mock_get.return_value = MockResponse("{}")
+    
     client.get('tracks', limit=5)
+    
+    mock_get.assert_called_with(expected_url, headers=headers, allow_redirects=True)
 
 
-@patch('requests.post')
-def test_method_dispatching_post_request(fake_post):
+@mock.patch('requests.post')
+def test_method_dispatching_post_request(mock_post):
     """Test that calling client.post() results in a proper call
     to the post function in the requests module.
 
@@ -133,17 +131,18 @@ def test_method_dispatching_post_request(fake_post):
     headers = {
         'User-Agent': soundcloud.USER_AGENT
     }
-    (fake_post.expects_call()
-              .with_args(expected_url,
-                         data=data,
-                         headers=headers,
-                         allow_redirects=True)
-              .returns(MockResponse("{}")))
+    mock_post.return_value = MockResponse("{}")
+    
     client.post('tracks')
+    
+    mock_post.assert_called_with(expected_url,
+                                 data=data,
+                                 headers=headers,
+                                 allow_redirects=True)
 
 
-@patch('requests.get')
-def test_proxy_servers(fake_request):
+@mock.patch('requests.get')
+def test_proxy_servers(mock_get):
     """Test that providing a dictionary of proxy servers works."""
     proxies = {
         'http': 'myproxyserver:1234'
@@ -151,7 +150,7 @@ def test_proxy_servers(fake_request):
     client = soundcloud.Client(client_id='foo', proxies=proxies)
     expected_url = "%s?%s" % (
         client._resolve_resource_name('me'),
-        urlencode({
+        urllib.parse.urlencode({
             'client_id': 'foo'
         })
     )
@@ -159,10 +158,11 @@ def test_proxy_servers(fake_request):
         'User-Agent': soundcloud.USER_AGENT,
         'Accept': 'application/json'
     }
-    (fake_request.expects_call()
-                 .with_args(expected_url,
-                            headers=headers,
-                            proxies=proxies,
-                            allow_redirects=True)
-                 .returns(MockResponse("{}")))
+    mock_get.return_value = MockResponse("{}")
+    
     client.get('/me')
+    
+    mock_get.assert_called_with(expected_url,
+                                headers=headers,
+                                proxies=proxies,
+                                allow_redirects=True)

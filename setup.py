@@ -25,12 +25,10 @@ setup(
         '': ['README.rst']
     },
     install_requires=[
-        'fudge>=1.0.3',
-        'requests>=0.14.0',
-        'simplejson>=2.0',
+        'requests>=2.0.0',
     ],
     tests_require=[
-        'nose>=1.1.2',
+        'pytest>=7.0.0',
     ],
     classifiers=[
         'Development Status :: 4 - Beta',

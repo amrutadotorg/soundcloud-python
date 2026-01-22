@@ -1,13 +1,8 @@
-=====================================
-⚠️⚠️DEPRECATED - NO LONGER MAINTAINED⚠️⚠️
-=====================================
-This repository is no longer maintained by the SoundCloud team due to capacity constraints. We're instead focusing our efforts on improving the API & the developer platform. Please note, at the time of updating this, the repo is already not in sync with the latest API changes. 
-
-We recommend the community to fork this repo in order to maintain the SDK. We'd be more than happy to make a reference on our developer that the developers can use different SDKs build by the community. In case you need to reach out to us, please head over to https://github.com/soundcloud/api/issues  
-
 =================
 soundcloud-python
 =================
+
+A friendly wrapper around the `Soundcloud API`_, updated for **OAuth 2.1 and PKCE**.
 
 .. image:: https://travis-ci.org/soundcloud/soundcloud-python.svg
     :target: https://travis-ci.org/soundcloud/soundcloud-python
@@ -51,65 +46,52 @@ The client instance can then be used to fetch or modify resources: ::
 Authentication
 --------------
 
-All `OAuth2 authorization flows`_ supported by the Soundcloud API are
-available in soundcloud-python. If you only need read-only access to
-public resources, simply provide a client id when creating a `Client`
-instance: ::
+soundcloud-python supports **OAuth 2.1** with **PKCE** (Proof Key for Code Exchange).
+
+If you only need read-only access to public resources, providing a client id is enough: ::
 
     import soundcloud
 
     client = soundcloud.Client(client_id=YOUR_CLIENT_ID)
     track = client.get('/tracks/30709985')
-    print track.title
+    print(track.title)
 
-If however, you need to access private resources or modify a resource,
-you will need to have a user delegate access to your application. To do
-this, you can use one of the following OAuth2 authorization flows.
+If you need to access private resources or modify a resource, use the **Authorization Code Flow with PKCE**.
 
-**Authorization Code Flow**
+**Authorization Code Flow (PKCE)**
 
-The `Authorization Code Flow`_ involves redirecting the user to soundcloud.com
-where they will log in and grant access to your application: ::
+1. Initialize the client with your credentials and a redirect URI. A ``code_verifier`` is automatically generated: ::
 
     import soundcloud
 
     client = soundcloud.Client(
         client_id=YOUR_CLIENT_ID,
-        client_secret=YOUR_CLIENT_SECRET,
-        redirect_uri='http://yourapp.com/callback'
+        client_secret=YOUR_CLIENT_SECRET,  # Optional for public clients
+        redirect_uri='https://yourapp.com/callback'
     )
-    redirect(client.authorize_url())
+    # Redirect the user to the authorization URL
+    print(client.authorize_url())
 
-Note that `redirect_uri` must match the value you provided when you
-registered your application. After granting access, the user will be
-redirected to this uri, at which point your application can exchange
-the returned code for an access token: ::
+2. After the user grants access and is redirected back to your URI, exchange the ``code`` for an access token: ::
 
-    access_token, expires, scope, refresh_token = client.exchange_token(
-        code=request.args.get('code'))
-    render_text("Hi There, %s" % client.get('/me').username)
+    token = client.exchange_token(code=request.args.get('code'))
+    print(token.access_token)
+    print(client.get('/me').username)
 
+**Refresh Token Flow**
 
-**User Credentials Flow**
-
-The `User Credentials Flow`_ allows you to exchange a username and
-password for an access token. Be cautious about using this flow, it's
-not very kind to ask your users for their password, but may be
-necessary in some use cases: ::
-
-    import soundcloud
+If you have a refresh token, you can use it to obtain a new access token: ::
 
     client = soundcloud.Client(
         client_id=YOUR_CLIENT_ID,
         client_secret=YOUR_CLIENT_SECRET,
-        username='jane@example.com',
-        password='janespassword'
+        refresh_token=YOUR_REFRESH_TOKEN
     )
-    print client.get('/me').username
+    # The client will automatically refresh the token on initialization
 
-.. _`OAuth2 authorization flows`: http://developers.soundcloud.com/docs/api/authentication
-.. _`Authorization Code Flow`: http://developers.soundcloud.com/docs/api/authentication#user-agent-flow
-.. _`User Credentials Flow`: http://developers.soundcloud.com/docs/api/authentication#user-credentials-flow
+**User Credentials Flow (DEPRECATED)**
+
+The `User Credentials Flow` (password-based) is deprecated in OAuth 2.1 and will raise a ``DeprecationWarning``. It is recommended to use the Authorization Code Flow instead.
 
 Examples
 --------
@@ -186,13 +168,10 @@ Will print a tracks streaming URL. If ``allow_redirects`` was omitted, a binary 
 Running Tests
 -------------
 
-To run the tests, run: ::
+Tests are written using `pytest`. To run them: ::
 
     $ pip install -r requirements.txt
-    $ nosetests --with-doctest
-    ..................
-
-Success!
+    $ pytest
 
 Contributing
 ------------

@@ -1,12 +1,7 @@
-try:
-    import json
-except ImportError:
-    import simplejson as json
+import json
 
 from soundcloud.resource import wrapped_resource, ResourceList, Resource
 from soundcloud.tests.utils import MockResponse
-
-from nose.tools import eq_
 
 
 def test_json_list():
@@ -14,8 +9,8 @@ def test_json_list():
     resources = wrapped_resource(MockResponse(json.dumps([{'foo': 'bar'}]),
                                               encoding='utf-8'))
     assert isinstance(resources, ResourceList)
-    eq_(1, len(resources))
-    eq_('bar', resources[0].foo)
+    assert len(resources) == 1
+    assert resources[0].foo == 'bar'
 
 
 def test_json_object():
@@ -23,7 +18,7 @@ def test_json_object():
     resource = wrapped_resource(MockResponse(json.dumps({'foo': 'bar'}),
                                              encoding='utf-8'))
     assert isinstance(resource, Resource)
-    eq_('bar', resource.foo)
+    assert resource.foo == 'bar'
 
 
 def test_properties_copied():
@@ -34,7 +29,7 @@ def test_properties_copied():
                             reason='OK',
                             url='http://example.com')
     resource = wrapped_resource(response)
-    eq_(200, resource.status_code)
-    eq_('OK', resource.reason)
-    eq_('utf-8', resource.encoding)
-    eq_('http://example.com', resource.url)
+    assert resource.status_code == 200
+    assert resource.reason == 'OK'
+    assert resource.encoding == 'utf-8'
+    assert resource.url == 'http://example.com'

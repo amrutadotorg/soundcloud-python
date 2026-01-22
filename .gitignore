@@ -1,2 +1,30 @@
-*.pyc
-*.egg-info
+# --- Python bytecode ---
+__pycache__/
+*.py[cod]
+
+# --- Pytest ---
+.pytest_cache/
+
+# --- macOS ---
+.DS_Store
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- Packaging / build ---
+build/
+dist/
+*.egg-info/
+
+# --- Editor / IDE ---
+.vscode/
+.idea/
+
+# --- Coverage / test artifacts ---
+.coverage
+htmlcov/
+
+# --- OS / misc ---
+*.log
