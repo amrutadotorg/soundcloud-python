@@ -6,6 +6,7 @@ from unittest import mock
 import pytest
 
 import soundcloud
+from soundcloud.auth import AccessTokenCredential, ClientIdCredential
 from soundcloud.tests.utils import MockResponse
 
 # Fixed test values for PKCE
@@ -340,3 +341,103 @@ def test_client_credentials_requires_secret():
     client = soundcloud.Client(client_id="foo")
     with pytest.raises(ValueError):
         client.client_credentials_token()
+
+
+def test_missing_client_id_raises_typeerror():
+    """A Client without client_id or access_token cannot be built."""
+    with pytest.raises(TypeError):
+        soundcloud.Client()
+
+
+def test_credentials_apply():
+    """Each credential injects exactly one auth value into request kwargs."""
+    kwargs = {}
+    AccessTokenCredential("tok").apply(kwargs)
+    assert kwargs == {"oauth_token": "tok"}
+
+    kwargs = {}
+    ClientIdCredential("cid").apply(kwargs)
+    assert kwargs == {"client_id": "cid"}
+
+
+def test_client_id_credential_before_token():
+    """Requests are signed with client_id until a token is obtained."""
+    client = soundcloud.Client(client_id="foo", client_secret="bar")
+    assert isinstance(client.credential, ClientIdCredential)
+
+
+@mock.patch("secrets.token_urlsafe")
+@mock.patch("requests.post")
+def test_credential_switches_to_bearer_after_exchange(mock_post, mock_secrets):
+    """exchange_token switches the request credential to Bearer auth."""
+    mock_secrets.return_value = MOCK_VERIFIER
+
+    with non_expiring_token_response(mock_post):
+        client = soundcloud.Client(
+            client_id="foo",
+            client_secret="bar",
+            redirect_uri="https://example.com/callback",
+        )
+        assert isinstance(client.credential, ClientIdCredential)
+
+        client.exchange_token("this-is-a-code")
+
+    assert isinstance(client.credential, AccessTokenCredential)
+    assert client.access_token == "access-1234"
+
+
+def test_credential_switches_to_bearer_after_client_credentials():
+    """client_credentials_token switches the request credential to Bearer."""
+    with mock.patch("requests.post") as mock_post:
+        mock_post.return_value = MockResponse(
+            '{"access_token":"app-1234","refresh_token":"rt-5678",'
+            '"expires_in":3599,"scope":""}'
+        )
+        client = soundcloud.Client(client_id="foo", client_secret="bar")
+        assert isinstance(client.credential, ClientIdCredential)
+
+        client.client_credentials_token()
+
+    assert isinstance(client.credential, AccessTokenCredential)
+    assert client.access_token == "app-1234"
+
+
+@mock.patch("secrets.token_urlsafe")
+@mock.patch("requests.post")
+def test_requests_use_bearer_after_exchange(mock_post, mock_secrets):
+    """After exchange, requests send Bearer auth and no client_id."""
+    mock_secrets.return_value = MOCK_VERIFIER
+
+    with non_expiring_token_response(mock_post):
+        client = soundcloud.Client(
+            client_id="foo",
+            client_secret="bar",
+            redirect_uri="https://example.com/callback",
+        )
+        client.exchange_token("this-is-a-code")
+
+    with mock.patch("requests.get") as mock_get:
+        mock_get.return_value = MockResponse("{}")
+        client.get("/me")
+
+    url, kwargs = mock_get.call_args
+    assert kwargs["headers"]["Authorization"] == "Bearer access-1234"
+    assert "client_id" not in url
+    assert "client_id" not in kwargs
+
+
+@mock.patch("secrets.token_urlsafe")
+@mock.patch("requests.post")
+def test_refresh_flow_uses_bearer(mock_post, mock_secrets):
+    """A refresh flow client is immediately authenticated with Bearer."""
+    mock_secrets.return_value = MOCK_VERIFIER
+
+    with refresh_token_response_with_rotation(mock_post):
+        client = soundcloud.Client(
+            client_id="foo",
+            client_secret="bar",
+            refresh_token="refresh-1234",
+        )
+
+    assert isinstance(client.credential, AccessTokenCredential)
+    assert client.access_token == "access-2345"

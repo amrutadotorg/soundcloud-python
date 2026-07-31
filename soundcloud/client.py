@@ -7,6 +7,7 @@ from urllib.parse import urlencode
 
 import requests
 
+from soundcloud.auth import AccessTokenCredential, AuthFlow
 from soundcloud.request import make_request
 from soundcloud.resource import Resource, ResourceList, wrapped_resource
 
@@ -28,31 +29,19 @@ class Client:
         self.options = kwargs
         self._authorize_url: str | None = None
 
-        # Zapisujemy client_id zawsze (potrzebne do testów i refresh flow)
+        # client_id is always kept (needed for refresh flow and public requests)
         self.client_id: str | None = kwargs.get("client_id")
 
         self.code_verifier: str | None = None
-        self.access_token: str | None = None
+        self.access_token: str | None = kwargs.get("access_token")
         self.token: Resource | ResourceList | None = None
-
-        # Jeśli mamy access_token, przerywamy dalszą inicjalizację (nie robimy flow auth)
-        if "access_token" in kwargs and kwargs.get("access_token"):
-            self.access_token = kwargs.get("access_token")
-            return
-
-        if "client_id" not in kwargs:
-            raise TypeError("At least a client_id must be provided.")
 
         if "scope" in kwargs:
             self.scope = kwargs.get("scope")
 
-        if self._options_for_authorization_code_flow_present():
-            self.code_verifier = self._generate_code_verifier()
-            self._authorization_code_flow()
-        elif self._options_for_credentials_flow_present():
-            raise DeprecationWarning("Password flow is deprecated.")
-        elif self._options_for_token_refresh_present():
-            self._refresh_token_flow()
+        self.flow = AuthFlow.from_options(kwargs)
+        self.flow.prepare(self)
+        self.credential = self.flow.resolve(self)
 
     def _generate_code_verifier(self):
         verifier = secrets.token_urlsafe(96)
@@ -67,6 +56,22 @@ class Client:
             raise ValueError("code_verifier cannot be empty")
         sha256_hash = hashlib.sha256(verifier.encode("ascii")).digest()
         return base64.urlsafe_b64encode(sha256_hash).decode("ascii").rstrip("=")
+
+    def _set_token(self, token: Resource | ResourceList) -> Resource | ResourceList:
+        """Store a token response and switch requests to Bearer auth."""
+        self.token = token
+        access_token = token.access_token
+        if not access_token:
+            raise ValueError("Token response missing access_token")
+        self.access_token = access_token
+        self.credential = AccessTokenCredential(access_token)
+        return token
+
+    def _transport_options(self) -> dict:
+        return {
+            "verify_ssl": self.options.get("verify_ssl", True),
+            "proxies": self.options.get("proxies", None),
+        }
 
     def exchange_token(self, code) -> Resource | ResourceList:
         if not self.code_verifier:
@@ -85,15 +90,11 @@ class Client:
         if client_secret:
             options["client_secret"] = client_secret
 
-        options.update(
-            {
-                "verify_ssl": self.options.get("verify_ssl", True),
-                "proxies": self.options.get("proxies", None),
-            }
-        )
+        options.update(self._transport_options())
 
-        self.token = wrapped_resource(make_request("post", url, options))
-        self.access_token = self.token.access_token
+        self.token = self._set_token(
+            wrapped_resource(make_request("post", url, options))
+        )
         self.code_verifier = None
         return self.token
 
@@ -119,24 +120,25 @@ class Client:
             "accept": "application/json; charset=utf-8",
             "Authorization": f"Basic {basic}",
         }
-        kwargs = {}
-        if self.options.get("verify_ssl") is False:
-            kwargs["verify"] = False
-        if self.options.get("proxies"):
-            kwargs["proxies"] = self.options["proxies"]
+
+        transport = self._transport_options()
+        request_kwargs = {}
+        if transport["verify_ssl"] is False:
+            request_kwargs["verify"] = False
+        if transport["proxies"]:
+            request_kwargs["proxies"] = transport["proxies"]
 
         response = requests.post(
             url,
             headers=headers,
             data={"grant_type": "client_credentials"},
-            **kwargs,
+            **request_kwargs,
         )
         response.raise_for_status()
-        self.token = wrapped_resource(response)
-        self.access_token = self.token.access_token
-        if hasattr(self.token, "refresh_token") and self.token.refresh_token:
-            self.options["refresh_token"] = self.token.refresh_token
-        return self.token
+        token = self._set_token(wrapped_resource(response))
+        if hasattr(token, "refresh_token") and token.refresh_token:
+            self.options["refresh_token"] = token.refresh_token
+        return token
 
     def authorize_url(self) -> str | None:
         return self._authorize_url
@@ -171,35 +173,18 @@ class Client:
         if client_secret:
             options["client_secret"] = client_secret
 
-        options.update(
-            {
-                "verify_ssl": self.options.get("verify_ssl", True),
-                "proxies": self.options.get("proxies", None),
-            }
-        )
+        options.update(self._transport_options())
 
-        self.token = wrapped_resource(make_request("post", url, options))
-        self.access_token = self.token.access_token
+        self.token = self._set_token(
+            wrapped_resource(make_request("post", url, options))
+        )
         if hasattr(self.token, "refresh_token") and self.token.refresh_token:
             self.options["refresh_token"] = self.token.refresh_token
 
     def _request(self, method, resource, **kwargs):
         url = self._resolve_resource_name(resource)
-
-        # KLUCZOWA LOGIKA:
-        # Jeśli mamy access_token, wysyłamy TYLKO token (Bearer).
-        # Jeśli nie mamy tokena, wysyłamy client_id.
-        if hasattr(self, "access_token") and self.access_token:
-            kwargs.update({"oauth_token": self.access_token})
-        elif hasattr(self, "client_id") and self.client_id:
-            kwargs.update({"client_id": self.client_id})
-
-        kwargs.update(
-            {
-                "verify_ssl": self.options.get("verify_ssl", True),
-                "proxies": self.options.get("proxies", None),
-            }
-        )
+        self.credential.apply(kwargs)
+        kwargs.update(self._transport_options())
         return wrapped_resource(make_request(method, url, kwargs))
 
     def __getattr__(self, name, **kwargs) -> Any:
@@ -224,19 +209,3 @@ class Client:
         ):
             raise ValueError("HTTPS required for redirect_uri")
         return redirect_uri
-
-    def _options_present(self, options, kwargs):
-        return all(k in kwargs for k in options)
-
-    def _options_for_credentials_flow_present(self):
-        return self._options_present(
-            ("client_id", "client_secret", "username", "password"), self.options
-        )
-
-    def _options_for_authorization_code_flow_present(self):
-        return self._options_present(
-            ("client_id", "redirect_uri"), self.options
-        ) or self._options_present(("client_id", "redirect_url"), self.options)
-
-    def _options_for_token_refresh_present(self):
-        return self._options_present(("client_id", "refresh_token"), self.options)

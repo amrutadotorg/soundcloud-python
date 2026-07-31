@@ -31,6 +31,7 @@ Community-maintained fork of the deprecated *soundcloud-python* library — a fr
 ├── README.rst                   # Usage docs (API v2, OAuth 2.1 / PKCE)
 ├── soundcloud/
 │   ├── __init__.py              # __version__, USER_AGENT, re-exports Client
+│   ├── auth.py                  # AuthFlow.from_options factory + Credential seam
 │   ├── client.py                # Client class (OAuth 2.1 / PKCE, request helpers)
 │   ├── request.py               # make_request low-level HTTP
 │   ├── resource.py              # Resource, ResourceList, wrapped_resource
@@ -93,6 +94,7 @@ SOUNDCLOUD_CLIENT_ID=... uv run pytest -m integration -v -s
 - Public resources (no user session): `client.client_credentials_token()` — requires `client_id` + `client_secret` (HTTP Basic auth, per SoundCloud docs)
 - Refresh tokens are **single-use** (rotated on every refresh); the new token lands in `client.options["refresh_token"]` — persist it
 - `client_id` must never leak into signed request URLs (see git history for the client_id leak fix)
+- `AuthFlow.from_options(options)` (in `soundcloud/auth.py`) picks the OAuth flow; each flow's `resolve(client)` returns a `Credential` (`AccessTokenCredential` for Bearer, `ClientIdCredential` for public `client_id`) — every token-setting path goes through `Client._set_token()`, so the request credential is always the single source of auth truth
 
 ### Tests
 - Unit tests: no external network calls — use `MockResponse` from `soundcloud/tests/utils.py` (mock `requests` via the request layer)

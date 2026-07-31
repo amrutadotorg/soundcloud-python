@@ -52,45 +52,51 @@ def namespaced_query_string(d, prefix=""):
     return qs
 
 
-def make_request(method, url, params):
-    """Make an HTTP request, formatting params as required."""
-    empty = []
+def _extract_transport_kwargs(params):
+    """Copy params, drop empty values, and split off transport/auth options.
 
-    # clean empty values
-    for key, value in list(params.items()):
-        if value is None:
-            empty.append(key)
-    for key in empty:
-        del params[key]
+    Returns (transport_kwargs, remaining_params) without mutating the input.
+    """
+    remaining = {k: v for k, v in params.items() if v is not None}
 
-    # allow caller to disable automatic following of redirects
-    allow_redirects = params.get("allow_redirects", True)
+    transport = {"allow_redirects": remaining.pop("allow_redirects", True)}
+    if remaining.get("verify_ssl") is False:
+        transport["verify"] = False
+    remaining.pop("verify_ssl", None)
+    if "proxies" in remaining:
+        transport["proxies"] = remaining.pop("proxies")
+    if "headers" in remaining:
+        transport["headers"] = dict(remaining.pop("headers"))
+    if "oauth_token" in remaining:
+        transport.setdefault("headers", {})["Authorization"] = (
+            "Bearer " + remaining.pop("oauth_token")
+        )
+    return transport, remaining
 
-    kwargs = {
-        "allow_redirects": allow_redirects,
-        "headers": {"User-Agent": soundcloud.USER_AGENT},
-    }
 
-    # Handle specific options
-    if "verify_ssl" in params:
-        if params["verify_ssl"] is False:
-            kwargs["verify"] = params["verify_ssl"]
-        del params["verify_ssl"]
-    if "proxies" in params:
-        kwargs["proxies"] = params["proxies"]
-        del params["proxies"]
-    if "allow_redirects" in params:
-        del params["allow_redirects"]
-
-    # --- FIX: Change 'OAuth' to 'Bearer' for OAuth 2.1 compliance ---
-    if "oauth_token" in params:
-        kwargs["headers"]["Authorization"] = "Bearer " + params["oauth_token"]
-        del params["oauth_token"]
-    # ----------------------------------------------------------------
-
+def _encode_body(params):
+    """Encode params into (data, files) pairs for the request body."""
     params = hashconversions.to_params(params)
     files = namespaced_query_string(extract_files_from_dict(params))
     data = namespaced_query_string(remove_files_from_dict(params))
+    return data, files
+
+
+def make_request(method, url, params):
+    """Make an HTTP request, formatting params as required."""
+    transport, params = _extract_transport_kwargs(params)
+    data, files = _encode_body(params)
+
+    kwargs = {
+        "allow_redirects": transport["allow_redirects"],
+        "headers": {"User-Agent": soundcloud.USER_AGENT},
+    }
+    if "verify" in transport:
+        kwargs["verify"] = transport["verify"]
+    if "proxies" in transport:
+        kwargs["proxies"] = transport["proxies"]
+    if "headers" in transport:
+        kwargs["headers"].update(transport["headers"])
 
     request_func = getattr(requests, method, None)
     if request_func is None:
@@ -100,10 +106,10 @@ def make_request(method, url, params):
         kwargs["headers"]["Accept"] = "application/json"
         qs = urlencode(data)
         if "?" in url:
-            url_qs = f"{url}&{qs}"
+            url = f"{url}&{qs}"
         else:
-            url_qs = f"{url}?{qs}"
-        result = request_func(url_qs, **kwargs)
+            url = f"{url}?{qs}"
+        result = request_func(url, **kwargs)
     else:
         kwargs["data"] = data
         if files:
@@ -112,7 +118,7 @@ def make_request(method, url, params):
 
     # if redirects are disabled, don't raise for 301 / 302
     if result.status_code in (301, 302):
-        if allow_redirects:
+        if transport["allow_redirects"]:
             result.raise_for_status()
     else:
         result.raise_for_status()
