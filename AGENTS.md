@@ -42,7 +42,7 @@ Community-maintained fork of the deprecated *soundcloud-python* library — a fr
 │       ├── test_oauth.py        # OAuth 2.1 / PKCE tests
 │       ├── test_requests.py     # Request tests
 │       └── test_resource.py     # Resource wrapping tests
-└── .github/workflows/tests.yml  # CI: lint + pyright + tests (Python 3.11–3.12)
+└── .github/workflows/tests.yml  # CI: lint + pyright + tests (Python 3.11–3.14)
 ```
 
 ## Commands
@@ -103,7 +103,7 @@ uv run pyright               # 3. Type check must pass
 uv run pytest -v             # 4. Full test suite must pass
 ```
 
-CI (GitHub Actions) runs steps 1–3 on Python 3.11 and the test suite across Python 3.11–3.12 on every push/PR.
+CI (GitHub Actions) runs steps 1–3 on Python 3.11 and the test suite across Python 3.11–3.14 on every push/PR.
 
 ## Do Not Touch
 
