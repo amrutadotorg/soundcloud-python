@@ -40,15 +40,28 @@ Basic Usage
 
 To use *soundcloud-python*, first create a ``Client`` instance.
 
-If you only need access to public resources, a ``client_id`` is sufficient: ::
+SoundCloud now treats all clients as confidential and requires an access
+token for **every** request — a bare ``client_id`` is no longer accepted
+by the API.
+
+Public resources (search, playback, URL resolution) use the
+``client_credentials`` flow — no user session needed: ::
 
     import soundcloud
 
-    client = soundcloud.Client(client_id=YOUR_CLIENT_ID)
+    client = soundcloud.Client(
+        client_id=YOUR_CLIENT_ID,
+        client_secret=YOUR_CLIENT_SECRET,
+    )
+    client.client_credentials_token()
 
     tracks = client.get('/tracks', limit=10)
     for track in tracks.collection:
         print(track.title)
+
+User resources (``/me``, uploads, playlists) need the OAuth 2.1 PKCE flow —
+see below. Refresh tokens are **single-use** (rotated on every refresh), so
+persist the new one from each response.
 
 Authentication
 --------------
@@ -65,7 +78,7 @@ Authorization Code Flow (PKCE)
 
     client = soundcloud.Client(
         client_id=YOUR_CLIENT_ID,
-        client_secret=YOUR_CLIENT_SECRET,  # Optional for public clients
+        client_secret=YOUR_CLIENT_SECRET,
         redirect_uri='https://yourapp.com/callback'
     )
 
@@ -197,7 +210,9 @@ credentials are provided via env vars (never commit them)::
 `test_exchange_token` prints an authorization URL — approve it in a browser
 and paste the ``code`` from the redirect URL. The code is bound to the PKCE
 code_verifier, so to reuse a captured code pin ``SOUNDCLOUD_VERIFIER`` before
-generating the URL (see ``SOUNDCLOUD_*`` env vars in ``AGENTS.md``).
+generating the URL. User-token tests persist the rotated refresh token to
+``.sc_refresh_token`` (gitignored) so reruns keep working. See ``SOUNDCLOUD_*``
+env vars in ``AGENTS.md``.
 
 Contributing
 ------------

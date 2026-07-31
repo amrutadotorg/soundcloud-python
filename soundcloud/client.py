@@ -5,6 +5,8 @@ from functools import partial
 from typing import Any
 from urllib.parse import urlencode
 
+import requests
+
 from soundcloud.request import make_request
 from soundcloud.resource import Resource, ResourceList, wrapped_resource
 
@@ -93,6 +95,47 @@ class Client:
         self.token = wrapped_resource(make_request("post", url, options))
         self.access_token = self.token.access_token
         self.code_verifier = None
+        return self.token
+
+    def client_credentials_token(self) -> Resource | ResourceList:
+        """Obtain an app-level token for public resources (client_credentials flow).
+
+        Requires client_id and client_secret, sent via HTTP Basic auth (per the
+        SoundCloud docs). The token grants access to public resources only
+        (search, playback, URL resolution) — no user session. The response
+        includes a single-use refresh_token, stored in ``self.options``.
+        """
+        if not self.client_id:
+            raise ValueError("client_id required for client_credentials flow")
+        client_secret = self.options.get("client_secret")
+        if not client_secret:
+            raise ValueError("client_secret required for client_credentials flow")
+
+        url = f"https://{self.auth_host}/oauth/token"
+        basic = base64.b64encode(
+            f"{self.client_id}:{client_secret}".encode("ascii")
+        ).decode("ascii")
+        headers = {
+            "accept": "application/json; charset=utf-8",
+            "Authorization": f"Basic {basic}",
+        }
+        kwargs = {}
+        if self.options.get("verify_ssl") is False:
+            kwargs["verify"] = False
+        if self.options.get("proxies"):
+            kwargs["proxies"] = self.options["proxies"]
+
+        response = requests.post(
+            url,
+            headers=headers,
+            data={"grant_type": "client_credentials"},
+            **kwargs,
+        )
+        response.raise_for_status()
+        self.token = wrapped_resource(response)
+        self.access_token = self.token.access_token
+        if hasattr(self.token, "refresh_token") and self.token.refresh_token:
+            self.options["refresh_token"] = self.token.refresh_token
         return self.token
 
     def authorize_url(self) -> str | None:

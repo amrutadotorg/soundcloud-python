@@ -26,5 +26,8 @@ dist/
 .coverage
 htmlcov/
 
+# --- Local integration-test state ---
+.sc_refresh_token
+
 # --- OS / misc ---
 *.log

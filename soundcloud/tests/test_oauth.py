@@ -315,3 +315,28 @@ def test_confidential_client_includes_secret(mock_post, mock_secrets):
 
         token = client.exchange_token("auth-code")
         assert token is not None
+
+
+@mock.patch("requests.post")
+def test_client_credentials_token(mock_post):
+    """The client_credentials flow sends Basic auth and stores the token."""
+    mock_post.return_value = MockResponse(
+        '{"access_token":"app-1234","refresh_token":"rt-5678","expires_in":3599,"scope":""}'
+    )
+    client = soundcloud.Client(client_id="foo", client_secret="bar")
+
+    token = client.client_credentials_token()
+
+    assert token.access_token == "app-1234"
+    assert client.access_token == "app-1234"
+    assert client.options["refresh_token"] == "rt-5678"
+    _, kwargs = mock_post.call_args
+    assert kwargs["data"] == {"grant_type": "client_credentials"}
+    assert kwargs["headers"]["Authorization"].startswith("Basic ")
+
+
+def test_client_credentials_requires_secret():
+    """The client_credentials flow cannot run without a client_secret."""
+    client = soundcloud.Client(client_id="foo")
+    with pytest.raises(ValueError):
+        client.client_credentials_token()
