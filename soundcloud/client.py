@@ -2,6 +2,7 @@ import base64
 import hashlib
 import secrets
 from functools import partial
+from typing import Any
 from urllib.parse import urlencode
 
 from soundcloud.request import make_request
@@ -158,7 +159,7 @@ class Client:
         )
         return wrapped_resource(make_request(method, url, kwargs))
 
-    def __getattr__(self, name, **kwargs):
+    def __getattr__(self, name, **kwargs) -> Any:
         if name not in ("get", "post", "put", "head", "delete"):
             raise AttributeError
         return partial(self._request, name, **kwargs)

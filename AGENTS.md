@@ -39,10 +39,12 @@ Community-maintained fork of the deprecated *soundcloud-python* library — a fr
 │       ├── utils.py             # MockResponse helper
 │       ├── test_client.py       # Client tests
 │       ├── test_encoding.py     # Param encoding tests
+│       ├── test_integration.py  # Live API tests (opt-in, marker: integration)
 │       ├── test_oauth.py        # OAuth 2.1 / PKCE tests
 │       ├── test_requests.py     # Request tests
 │       └── test_resource.py     # Resource wrapping tests
 └── .github/workflows/tests.yml  # CI: lint + pyright + tests (Python 3.11–3.14)
+└── .github/workflows/integration.yml  # CI: live API tests (manual workflow_dispatch)
 ```
 
 ## Commands
@@ -64,6 +66,9 @@ uv run pytest -v
 uv run ruff check .
 uv run ruff format --check .
 uv run pyright
+
+# Live API integration tests (opt-in, needs credentials — see below)
+SOUNDCLOUD_CLIENT_ID=... uv run pytest -m integration -v -s
 ```
 
 ### Git Workflow
@@ -88,9 +93,24 @@ uv run pyright
 - `client_id` must never leak into signed request URLs (see git history for the client_id leak fix)
 
 ### Tests
-- No external network calls — use `MockResponse` from `soundcloud/tests/utils.py`
-- All tests are pure unit tests (mock `requests` via the request layer)
+- Unit tests: no external network calls — use `MockResponse` from `soundcloud/tests/utils.py` (mock `requests` via the request layer)
 - Add a test for every new client method or param-encoding edge case
+- Integration tests (`soundcloud/tests/test_integration.py`, marker `integration`) hit the live API; they **skip automatically** when `SOUNDCLOUD_CLIENT_ID` is not set, so the default suite never needs network or secrets
+
+### Integration Test Credentials
+Never commit credentials — pass them via env vars:
+
+| Env var | Used by | Notes |
+|---|---|---|
+| `SOUNDCLOUD_CLIENT_ID` | all integration tests | mandatory; without it everything skips |
+| `SOUNDCLOUD_CLIENT_SECRET` | `test_exchange_token`, `test_refresh_token_flow` | |
+| `SOUNDCLOUD_REDIRECT_URI` | `test_authorize_url_pkce`, `test_exchange_token` | must match the registered app callback |
+| `SOUNDCLOUD_USER_PERMALINK` | `test_user_tracks_by_permalink` | default: `nirmala-vidya-portal` |
+| `SOUNDCLOUD_REFRESH_TOKEN` | `test_refresh_token_flow` | take from `test_exchange_token` output |
+| `SOUNDCLOUD_AUTH_CODE` | `test_exchange_token` | optional: skip interactive prompt |
+| `SOUNDCLOUD_VERIFIER` | `test_exchange_token` | optional: pin PKCE verifier to reuse a captured code (43–128 chars) |
+
+`test_exchange_token` is semi-interactive: it prints the `authorize_url` — open it in a browser, approve, and paste the `code` from the redirect URL (run with `-s`). The code is bound to the code_verifier, so to reuse a captured code across runs you must pin `SOUNDCLOUD_VERIFIER` (set it before generating the URL).
 
 ## Verification Workflow
 
@@ -103,7 +123,7 @@ uv run pyright               # 3. Type check must pass
 uv run pytest -v             # 4. Full test suite must pass
 ```
 
-CI (GitHub Actions) runs steps 1–3 on Python 3.11 and the test suite across Python 3.11–3.14 on every push/PR.
+CI (GitHub Actions) runs steps 1–3 on Python 3.11 and the test suite across Python 3.11–3.14 on every push/PR. Live API tests are opt-in via the `integration` workflow (manual `workflow_dispatch`, uses GitHub Secrets `SOUNDCLOUD_*`).
 
 ## Do Not Touch
 

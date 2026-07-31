@@ -1,0 +1,33 @@
+name: integration
+
+on:
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+
+    env:
+      SOUNDCLOUD_CLIENT_ID: ${{ secrets.SOUNDCLOUD_CLIENT_ID }}
+      SOUNDCLOUD_CLIENT_SECRET: ${{ secrets.SOUNDCLOUD_CLIENT_SECRET }}
+      SOUNDCLOUD_REDIRECT_URI: ${{ secrets.SOUNDCLOUD_REDIRECT_URI }}
+      SOUNDCLOUD_USER_PERMALINK: ${{ secrets.SOUNDCLOUD_USER_PERMALINK }}
+      SOUNDCLOUD_REFRESH_TOKEN: ${{ secrets.SOUNDCLOUD_REFRESH_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run integration tests
+        run: uv run pytest -m integration -v

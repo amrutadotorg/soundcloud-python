@@ -186,6 +186,19 @@ To run them locally: ::
     uv sync
     uv run pytest
 
+Integration tests
+-----------------
+
+Opt-in live-API tests (``-m integration``) are skipped automatically unless
+credentials are provided via env vars (never commit them)::
+
+    SOUNDCLOUD_CLIENT_ID=... uv run pytest -m integration -v -s
+
+`test_exchange_token` prints an authorization URL — approve it in a browser
+and paste the ``code`` from the redirect URL. The code is bound to the PKCE
+code_verifier, so to reuse a captured code pin ``SOUNDCLOUD_VERIFIER`` before
+generating the URL (see ``SOUNDCLOUD_*`` env vars in ``AGENTS.md``).
+
 Contributing
 ------------
 

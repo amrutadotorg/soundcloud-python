@@ -43,6 +43,9 @@ path = "soundcloud/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = ["soundcloud/tests"]
+markers = [
+    "integration: tests that hit the live SoundCloud API (opt-in via SOUNDCLOUD_* env vars)",
+]
 
 [tool.ruff]
 target-version = "py311"
