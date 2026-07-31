@@ -102,3 +102,27 @@ def test_extract_transport_kwargs_drops_empty_values():
 
     assert transport == {"allow_redirects": True}
     assert remaining == {"client_id": "foo"}
+
+
+def test_timeout_is_transport_option():
+    """timeout goes to requests kwargs, not into the query string."""
+    transport, remaining = _extract_transport_kwargs(
+        {"client_id": "foo", "timeout": 30}
+    )
+
+    assert transport["timeout"] == 30
+    assert remaining == {"client_id": "foo"}
+
+
+@mock.patch("requests.get")
+def test_make_request_passes_timeout(mock_get):
+    """A timeout param is forwarded to requests.get."""
+    mock_get.return_value = MockResponse("{}")
+
+    make_request(
+        "get", "https://api.soundcloud.com/tracks", {"client_id": "foo", "timeout": 30}
+    )
+
+    url, kwargs = mock_get.call_args
+    assert kwargs["timeout"] == 30
+    assert "timeout" not in url

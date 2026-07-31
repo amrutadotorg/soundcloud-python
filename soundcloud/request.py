@@ -65,6 +65,8 @@ def _extract_transport_kwargs(params):
     remaining.pop("verify_ssl", None)
     if "proxies" in remaining:
         transport["proxies"] = remaining.pop("proxies")
+    if "timeout" in remaining:
+        transport["timeout"] = remaining.pop("timeout")
     if "headers" in remaining:
         transport["headers"] = dict(remaining.pop("headers"))
     if "oauth_token" in remaining:
@@ -95,6 +97,8 @@ def make_request(method, url, params):
         kwargs["verify"] = transport["verify"]
     if "proxies" in transport:
         kwargs["proxies"] = transport["proxies"]
+    if "timeout" in transport:
+        kwargs["timeout"] = transport["timeout"]
     if "headers" in transport:
         kwargs["headers"].update(transport["headers"])
 

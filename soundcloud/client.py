@@ -71,6 +71,7 @@ class Client:
         return {
             "verify_ssl": self.options.get("verify_ssl", True),
             "proxies": self.options.get("proxies", None),
+            "timeout": self.options.get("timeout"),
         }
 
     def exchange_token(self, code) -> Resource | ResourceList:

@@ -132,6 +132,19 @@ def test_method_dispatching_post_request(mock_post):
 
 
 @mock.patch("requests.get")
+def test_timeout_from_client_options(mock_get):
+    """Client(timeout=...) applies to every request without hitting the URL."""
+    client = soundcloud.Client(client_id="foo", timeout=30)
+    mock_get.return_value = MockResponse("{}")
+
+    client.get("tracks", limit=5)
+
+    url, kwargs = mock_get.call_args
+    assert kwargs["timeout"] == 30
+    assert "timeout" not in url
+
+
+@mock.patch("requests.get")
 def test_proxy_servers(mock_get):
     """Test that providing a dictionary of proxy servers works."""
     proxies = {"http": "myproxyserver:1234"}
