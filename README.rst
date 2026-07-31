@@ -24,7 +24,7 @@ This project is **not affiliated with SoundCloud Ltd.**
 Requirements
 ------------
 
-- Python 3.8+
+- Python 3.11+
 - requests
 - pytest (for running tests)
 
@@ -183,8 +183,8 @@ Tests are written using **pytest**.
 
 To run them locally: ::
 
-    pip install -r requirements.txt
-    pytest
+    uv sync
+    uv run pytest
 
 Contributing
 ------------

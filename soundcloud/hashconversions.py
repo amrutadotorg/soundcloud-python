@@ -3,7 +3,7 @@ import collections
 
 def to_params(hash):
     normalized = [normalize_param(k, v) for (k, v) in hash.items()]
-    return dict((k, v) for d in normalized for (k, v) in d.items())
+    return {k: v for d in normalized for (k, v) in d.items()}
 
 
 def normalize_param(key, value):
@@ -32,8 +32,10 @@ def normalize_param(key, value):
     params = {}
     stack = []
     if isinstance(value, list):
-        normalized = [normalize_param(f"{dict(key=key)['key']}[]", e) for e in value]
-        keys = [item for sublist in tuple(h.keys() for h in normalized) for item in sublist]
+        normalized = [normalize_param(f"{key}[]", e) for e in value]
+        keys = [
+            item for sublist in tuple(h.keys() for h in normalized) for item in sublist
+        ]
 
         lists = {}
         if len(keys) != len(set(keys)):
@@ -43,18 +45,18 @@ def normalize_param(key, value):
                 for h in normalized:
                     del h[dup]
 
-        params.update(dict((k, v) for d in normalized for (k, v) in d.items()))
+        params.update({k: v for d in normalized for (k, v) in d.items()})
         params.update(lists)
     elif isinstance(value, dict):
         stack.append([key, value])
     else:
         params.update({key: value})
 
-    for (parent, hash) in stack:
-        for (key, value) in hash.items():
-            if isinstance(value, dict):
-                stack.append(["{0[parent]}[{0[key]}]".format(dict(parent=parent, key=key)), value])
+    for parent, subhash in stack:
+        for k, v in subhash.items():
+            if isinstance(v, dict):
+                stack.append([f"{parent}[{k}]", v])
             else:
-                params.update(normalize_param("{0[parent]}[{0[key]}]".format(dict(parent=parent, key=key)), value))
+                params.update(normalize_param(f"{parent}[{k}]", v))
 
     return params

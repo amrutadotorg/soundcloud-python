@@ -7,16 +7,17 @@ class Resource:
 
     Provides an object interface to resources returned by the Soundcloud API.
     """
+
     def __init__(self, obj):
         self.obj = obj
-        if hasattr(self, 'origin'):
+        if hasattr(self, "origin"):
             self.origin = Resource(self.origin)
 
     def __getstate__(self):
         return self.obj.items()
 
     def __setstate__(self, items):
-        if not hasattr(self, 'obj'):
+        if not hasattr(self, "obj"):
             self.obj = {}
         for key, val in items:
             self.obj[key] = val
@@ -35,19 +36,27 @@ class Resource:
 
 class ResourceList(UserList):
     """Object wrapper for lists of resources."""
-    def __init__(self, resources=[]):
+
+    def __init__(self, resources=None):
+        if resources is None:
+            resources = []
         data = [Resource(resource) for resource in resources]
         super().__init__(data)
 
+    def __getattr__(self, name):
+        if self.data:
+            return getattr(self.data[0], name)
+        raise AttributeError(name)
 
-def wrapped_resource(response):
+
+def wrapped_resource(response) -> Resource | ResourceList:
     """Return a response wrapped in the appropriate wrapper type.
 
     Lists will be returned as a ```ResourceList``` instance,
     dicts will be returned as a ```Resource``` instance.
     """
     # decode response text, assuming utf-8 if unset
-    response_content = response.content.decode(response.encoding or 'utf-8')
+    response_content = response.content.decode(response.encoding or "utf-8")
 
     try:
         content = json.loads(response_content)
@@ -58,11 +67,11 @@ def wrapped_resource(response):
         result = ResourceList(content)
     else:
         result = Resource(content)
-        if hasattr(result, 'collection'):
-            result.collection = ResourceList(result.collection)
-    result.raw_data = response_content
+        if hasattr(result, "collection"):
+            setattr(result, "collection", ResourceList(result.collection))  # noqa: B010
+    setattr(result, "raw_data", response_content)  # noqa: B010
 
-    for attr in ('encoding', 'url', 'status_code', 'reason'):
+    for attr in ("encoding", "url", "status_code", "reason"):
         setattr(result, attr, getattr(response, attr))
 
     return result

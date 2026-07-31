@@ -9,7 +9,7 @@ from . import hashconversions
 
 def is_file_like(f):
     """Check to see if ```f``` has a ```read()``` method."""
-    return hasattr(f, 'read') and callable(f.read)
+    return hasattr(f, "read") and callable(f.read)
 
 
 def extract_files_from_dict(d):
@@ -30,11 +30,11 @@ def remove_files_from_dict(d):
         if isinstance(value, dict):
             file_free[key] = remove_files_from_dict(value)
         elif not is_file_like(value):
-            if hasattr(value, '__iter__'):
+            if hasattr(value, "__iter__"):
                 file_free[key] = value
             else:
-                if hasattr(value, 'encode'):
-                    file_free[key] = value.encode('utf-8')
+                if hasattr(value, "encode"):
+                    file_free[key] = value.encode("utf-8")
                 else:
                     file_free[key] = str(value)
     return file_free
@@ -43,7 +43,7 @@ def remove_files_from_dict(d):
 def namespaced_query_string(d, prefix=""):
     """Transform a nested dict into a string with namespaced query params."""
     qs = {}
-    prefixed = lambda k: prefix and "%s[%s]" % (prefix, k) or k
+    prefixed = lambda k: prefix and f"{prefix}[{k}]" or k
     for key, value in d.items():
         if isinstance(value, dict):
             qs.update(namespaced_query_string(value, prefix=key))
@@ -64,30 +64,28 @@ def make_request(method, url, params):
         del params[key]
 
     # allow caller to disable automatic following of redirects
-    allow_redirects = params.get('allow_redirects', True)
+    allow_redirects = params.get("allow_redirects", True)
 
     kwargs = {
-        'allow_redirects': allow_redirects,
-        'headers': {
-            'User-Agent': soundcloud.USER_AGENT
-        }
+        "allow_redirects": allow_redirects,
+        "headers": {"User-Agent": soundcloud.USER_AGENT},
     }
-    
+
     # Handle specific options
-    if 'verify_ssl' in params:
-        if params['verify_ssl'] is False:
-            kwargs['verify'] = params['verify_ssl']
-        del params['verify_ssl']
-    if 'proxies' in params:
-        kwargs['proxies'] = params['proxies']
-        del params['proxies']
-    if 'allow_redirects' in params:
-        del params['allow_redirects']
-        
+    if "verify_ssl" in params:
+        if params["verify_ssl"] is False:
+            kwargs["verify"] = params["verify_ssl"]
+        del params["verify_ssl"]
+    if "proxies" in params:
+        kwargs["proxies"] = params["proxies"]
+        del params["proxies"]
+    if "allow_redirects" in params:
+        del params["allow_redirects"]
+
     # --- FIX: Change 'OAuth' to 'Bearer' for OAuth 2.1 compliance ---
-    if 'oauth_token' in params:
-        kwargs['headers']['Authorization'] = "Bearer " + params['oauth_token']
-        del params['oauth_token']
+    if "oauth_token" in params:
+        kwargs["headers"]["Authorization"] = "Bearer " + params["oauth_token"]
+        del params["oauth_token"]
     # ----------------------------------------------------------------
 
     params = hashconversions.to_params(params)
@@ -96,20 +94,20 @@ def make_request(method, url, params):
 
     request_func = getattr(requests, method, None)
     if request_func is None:
-        raise TypeError('Unknown method: %s' % (method,))
+        raise TypeError(f"Unknown method: {method}")
 
-    if method == 'get':
-        kwargs['headers']['Accept'] = 'application/json'
+    if method == "get":
+        kwargs["headers"]["Accept"] = "application/json"
         qs = urlencode(data)
-        if '?' in url:
-            url_qs = '%s&%s' % (url, qs)
+        if "?" in url:
+            url_qs = f"{url}&{qs}"
         else:
-            url_qs = '%s?%s' % (url, qs)
+            url_qs = f"{url}?{qs}"
         result = request_func(url_qs, **kwargs)
     else:
-        kwargs['data'] = data
+        kwargs["data"] = data
         if files:
-            kwargs['files'] = files
+            kwargs["files"] = files
         result = request_func(url, **kwargs)
 
     # if redirects are disabled, don't raise for 301 / 302

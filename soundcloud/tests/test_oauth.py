@@ -9,24 +9,20 @@ import soundcloud
 from soundcloud.tests.utils import MockResponse
 
 # Fixed test values for PKCE
-MOCK_VERIFIER = "test-verifier-1234567890-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+MOCK_VERIFIER = (
+    "test-verifier-1234567890-abcdefghijklmnopqrstuvwxyz-ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+)
 
 
 def get_mock_challenge(verifier):
     """Helper function to calculate expected challenge in tests."""
     sha256_hash = hashlib.sha256(verifier.encode("ascii")).digest()
-    return (
-        base64.urlsafe_b64encode(sha256_hash)
-        .decode("ascii")
-        .rstrip("=")
-    )
+    return base64.urlsafe_b64encode(sha256_hash).decode("ascii").rstrip("=")
 
 
 @contextmanager
 def non_expiring_token_response(mock_post):
-    response = MockResponse(
-        '{"access_token":"access-1234","scope":"non-expiring"}'
-    )
+    response = MockResponse('{"access_token":"access-1234","scope":"non-expiring"}')
     mock_post.return_value = response
     yield
 
@@ -66,6 +62,7 @@ def test_authorize_url_construction(mock_secrets):
     expected_challenge = get_mock_challenge(MOCK_VERIFIER)
     auth_url = client.authorize_url()
 
+    assert auth_url is not None
     assert auth_url.startswith("https://secure.soundcloud.com/authorize?")
     assert f"code_challenge={expected_challenge}" in auth_url
     assert "code_challenge_method=S256" in auth_url
@@ -85,7 +82,12 @@ def test_code_verifier_length_validation(mock_secrets):
         redirect_uri="https://example.com/callback",
     )
 
-    assert client.MIN_VERIFIER_LENGTH <= len(client.code_verifier) <= client.MAX_VERIFIER_LENGTH
+    assert client.code_verifier is not None
+    assert (
+        client.MIN_VERIFIER_LENGTH
+        <= len(client.code_verifier)
+        <= client.MAX_VERIFIER_LENGTH
+    )
 
 
 @mock.patch("secrets.token_urlsafe")
@@ -132,6 +134,7 @@ def test_exchange_code_expiring(mock_post, mock_secrets):
         expected_challenge = get_mock_challenge(MOCK_VERIFIER)
         auth_url = client.authorize_url()
 
+        assert auth_url is not None
         assert f"code_challenge={expected_challenge}" in auth_url
         # Check for encoded or unencoded scope
         assert "scope=%2A" in auth_url or "scope=*" in auth_url
@@ -157,9 +160,11 @@ def test_refresh_token_flow_with_rotation(mock_post, mock_secrets):
             refresh_token="refresh-1234",
         )
 
+        assert client.token is not None
         assert client.token.access_token == "access-2345"
         assert client.options["refresh_token"] == "refresh-2345"
         assert client.code_verifier is None
+
 
 @mock.patch("secrets.token_urlsafe")
 @mock.patch("requests.post")  # <--- DODANO: Mockowanie zapytań HTTP
@@ -273,6 +278,7 @@ def test_state_parameter_inclusion(mock_secrets):
     )
 
     auth_url = client.authorize_url()
+    assert auth_url is not None
     assert "state=random-state-value" in auth_url
 
 

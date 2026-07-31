@@ -14,17 +14,20 @@ Community-maintained fork of the deprecated *soundcloud-python* library — a fr
 
 | Category | Technology |
 |---|---|
-| Language | Python 3.8+ |
+| Language | Python 3.11+ (managed by uv) |
 | HTTP | requests (>=2.0.0) |
 | Testing | pytest (>=7.0.0) |
-| Packaging | setuptools (`setup.py`, version read from `soundcloud/__init__.py`) |
+| Linting | ruff (check + format) |
+| Type Checking | pyright |
+| Packaging | hatchling (`pyproject.toml`, version parsed from `soundcloud/__init__.py`) |
 | CI | GitHub Actions (`.github/workflows/tests.yml`) |
 
 ## Directory Structure
 
 ```
-├── setup.py                     # Packaging (version parsed from soundcloud/__init__.py)
-├── requirements.txt             # Deps: requests, pytest
+├── pyproject.toml               # Packaging + deps (version parsed from soundcloud/__init__.py)
+├── uv.lock                      # Lockfile (managed by uv)
+├── .python-version              # Dev Python: 3.11
 ├── README.rst                   # Usage docs (API v2, OAuth 2.1 / PKCE)
 ├── soundcloud/
 │   ├── __init__.py              # __version__, USER_AGENT, re-exports Client
@@ -39,20 +42,28 @@ Community-maintained fork of the deprecated *soundcloud-python* library — a fr
 │       ├── test_oauth.py        # OAuth 2.1 / PKCE tests
 │       ├── test_requests.py     # Request tests
 │       └── test_resource.py     # Resource wrapping tests
-└── .github/workflows/tests.yml  # CI: Python 3.8–3.12 matrix
+└── .github/workflows/tests.yml  # CI: lint + pyright + tests (Python 3.11–3.12)
 ```
 
 ## Commands
 
 ```bash
+# Install deps (creates .venv)
+uv sync
+
 # Run the test suite (same as CI)
-pytest
+uv run pytest
 
 # Single test file
-pytest soundcloud/tests/test_resource.py
+uv run pytest soundcloud/tests/test_resource.py
 
 # With verbose output
-pytest -v
+uv run pytest -v
+
+# Lint / format / type check (same as CI)
+uv run ruff check .
+uv run ruff format --check .
+uv run pyright
 ```
 
 ### Git Workflow
@@ -65,10 +76,11 @@ pytest -v
 ## Coding Guidelines
 
 ### Style
-- Python 3 syntax only (no `object` base classes, use `super()`, f-strings, raw-string regexes) — the repo was modernized from Python 2 legacy code
+- Python 3.11+ syntax (type-union annotations `str | None`, no `object` base classes, use `super()`, f-strings, raw-string regexes) — the repo was modernized from Python 2 legacy code
+- Formatted with `ruff format`, linted with `ruff check` (default rule set), type-checked with `pyright` — all enforced in CI
 - No comments unless they clarify non-obvious API behavior
 - Keep public API stable: `soundcloud.Client` is the main entry point, re-exported in `soundcloud/__init__.py`
-- Version lives ONLY in `soundcloud/__init__.py` (`__version__`); `setup.py` parses it — never bump in two places
+- Version lives ONLY in `soundcloud/__init__.py` (`__version__`); hatchling parses it — never bump in two places
 
 ### Client
 - `client.get(path, **params)` — the primary method; always returns wrapped `Resource` objects (via `wrapped_resource`)
@@ -85,13 +97,16 @@ pytest -v
 Before considering any change complete:
 
 ```bash
-pytest -v            # 1. Full test suite must pass
+uv run ruff check .          # 1. Lint must pass
+uv run ruff format --check . # 2. Format must pass
+uv run pyright               # 3. Type check must pass
+uv run pytest -v             # 4. Full test suite must pass
 ```
 
-CI (GitHub Actions) runs the same suite on every push/PR across Python 3.8–3.12.
+CI (GitHub Actions) runs steps 1–3 on Python 3.11 and the test suite across Python 3.11–3.12 on every push/PR.
 
 ## Do Not Touch
 
 - `.DS_Store` (check for accidental commits)
 - `.pytest_cache/`, `__pycache__/` — gitignored
-- `requirements.txt` — only update via deliberate dependency bumps
+- `uv.lock` — only update via `uv add`/`uv remove`/`uv lock`

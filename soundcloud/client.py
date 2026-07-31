@@ -2,14 +2,10 @@ import base64
 import hashlib
 import secrets
 from functools import partial
-
-try:
-    from urllib import urlencode
-except ImportError:
-    from urllib.parse import urlencode
+from urllib.parse import urlencode
 
 from soundcloud.request import make_request
-from soundcloud.resource import wrapped_resource
+from soundcloud.resource import Resource, ResourceList, wrapped_resource
 
 
 class Client:
@@ -27,12 +23,14 @@ class Client:
         self.host = kwargs.get("host", self.host)
         self.scheme = self.use_ssl and "https://" or "http://"
         self.options = kwargs
-        self._authorize_url = None
+        self._authorize_url: str | None = None
 
         # Zapisujemy client_id zawsze (potrzebne do testów i refresh flow)
-        self.client_id = kwargs.get("client_id")
+        self.client_id: str | None = kwargs.get("client_id")
 
-        self.code_verifier = None
+        self.code_verifier: str | None = None
+        self.access_token: str | None = None
+        self.token: Resource | ResourceList | None = None
 
         # Jeśli mamy access_token, przerywamy dalszą inicjalizację (nie robimy flow auth)
         if "access_token" in kwargs and kwargs.get("access_token"):
@@ -67,11 +65,11 @@ class Client:
         sha256_hash = hashlib.sha256(verifier.encode("ascii")).digest()
         return base64.urlsafe_b64encode(sha256_hash).decode("ascii").rstrip("=")
 
-    def exchange_token(self, code):
+    def exchange_token(self, code) -> Resource | ResourceList:
         if not self.code_verifier:
             raise ValueError("code_verifier not found.")
 
-        url = "https://%s/oauth/token" % self.auth_host
+        url = f"https://{self.auth_host}/oauth/token"
         options = {
             "grant_type": "authorization_code",
             "redirect_uri": self._redirect_uri(),
@@ -96,7 +94,7 @@ class Client:
         self.code_verifier = None
         return self.token
 
-    def authorize_url(self):
+    def authorize_url(self) -> str | None:
         return self._authorize_url
 
     def _authorization_code_flow(self):
@@ -115,11 +113,11 @@ class Client:
         if "state" in self.options:
             options["state"] = self.options.get("state")
 
-        url = "https://%s/authorize" % self.auth_host
-        self._authorize_url = "%s?%s" % (url, urlencode(options))
+        url = f"https://{self.auth_host}/authorize"
+        self._authorize_url = f"{url}?{urlencode(options)}"
 
     def _refresh_token_flow(self):
-        url = "https://%s/oauth/token" % self.auth_host
+        url = f"https://{self.auth_host}/oauth/token"
         options = {
             "grant_type": "refresh_token",
             "client_id": self.options.get("client_id"),
@@ -148,9 +146,9 @@ class Client:
         # Jeśli mamy access_token, wysyłamy TYLKO token (Bearer).
         # Jeśli nie mamy tokena, wysyłamy client_id.
         if hasattr(self, "access_token") and self.access_token:
-            kwargs.update(dict(oauth_token=self.access_token))
+            kwargs.update({"oauth_token": self.access_token})
         elif hasattr(self, "client_id") and self.client_id:
-            kwargs.update(dict(client_id=self.client_id))
+            kwargs.update({"client_id": self.client_id})
 
         kwargs.update(
             {
@@ -169,7 +167,7 @@ class Client:
         if name[:4] == "http":
             return name
         name = name.rstrip("/").lstrip("/")
-        return "%s%s/%s" % (self.scheme, self.host, name)
+        return f"{self.scheme}{self.host}/{name}"
 
     def _redirect_uri(self):
         redirect_uri = self.options.get(
@@ -184,7 +182,7 @@ class Client:
         return redirect_uri
 
     def _options_present(self, options, kwargs):
-        return all(map(lambda k: k in kwargs, options))
+        return all(k in kwargs for k in options)
 
     def _options_for_credentials_flow_present(self):
         return self._options_present(
