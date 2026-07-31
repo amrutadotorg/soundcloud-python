@@ -2,7 +2,7 @@ import json
 from collections import UserList
 
 
-class Resource(object):
+class Resource:
     """Object wrapper for resources.
 
     Provides an object interface to resources returned by the Soundcloud API.
@@ -37,7 +37,7 @@ class ResourceList(UserList):
     """Object wrapper for lists of resources."""
     def __init__(self, resources=[]):
         data = [Resource(resource) for resource in resources]
-        super(ResourceList, self).__init__(data)
+        super().__init__(data)
 
 
 def wrapped_resource(response):

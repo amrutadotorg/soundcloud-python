@@ -12,7 +12,7 @@ from soundcloud.request import make_request
 from soundcloud.resource import wrapped_resource
 
 
-class Client(object):
+class Client:
     """A client for interacting with Soundcloud resources (OAuth 2.1 / PKCE)."""
 
     use_ssl = True

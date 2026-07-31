@@ -2,10 +2,9 @@ import re
 
 from setuptools import setup
 
-
 version = None
 for line in open('./soundcloud/__init__.py'):
-    m = re.search('__version__\s*=\s*(.*)', line)
+    m = re.search(r'__version__\s*=\s*(.*)', line)
     if m:
         version = m.group(1).strip()[1:-1]  # quotes
         break

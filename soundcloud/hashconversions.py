@@ -1,6 +1,4 @@
-import re
 import collections
-from urllib.parse import quote_plus
 
 
 def to_params(hash):
@@ -34,7 +32,7 @@ def normalize_param(key, value):
     params = {}
     stack = []
     if isinstance(value, list):
-        normalized = [normalize_param(u"{0[key]}[]".format(dict(key=key)), e) for e in value]
+        normalized = [normalize_param(f"{dict(key=key)['key']}[]", e) for e in value]
         keys = [item for sublist in tuple(h.keys() for h in normalized) for item in sublist]
 
         lists = {}
@@ -55,8 +53,8 @@ def normalize_param(key, value):
     for (parent, hash) in stack:
         for (key, value) in hash.items():
             if isinstance(value, dict):
-                stack.append([u"{0[parent]}[{0[key]}]".format(dict(parent=parent, key=key)), value])
+                stack.append(["{0[parent]}[{0[key]}]".format(dict(parent=parent, key=key)), value])
             else:
-                params.update(normalize_param(u"{0[parent]}[{0[key]}]".format(dict(parent=parent, key=key)), value))
+                params.update(normalize_param("{0[parent]}[{0[key]}]".format(dict(parent=parent, key=key)), value))
 
     return params

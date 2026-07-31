@@ -1,6 +1,6 @@
 import json
 
-from soundcloud.resource import wrapped_resource, ResourceList, Resource
+from soundcloud.resource import Resource, ResourceList, wrapped_resource
 from soundcloud.tests.utils import MockResponse
 
 
