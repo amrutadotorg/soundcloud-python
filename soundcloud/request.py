@@ -1,3 +1,4 @@
+from typing import Any
 from urllib.parse import urlencode
 
 import requests
@@ -7,12 +8,12 @@ import soundcloud
 from . import hashconversions
 
 
-def is_file_like(f):
+def is_file_like(f: Any) -> bool:
     """Check to see if ```f``` has a ```read()``` method."""
     return hasattr(f, "read") and callable(f.read)
 
 
-def extract_files_from_dict(d):
+def extract_files_from_dict(d: dict) -> dict:
     """Return any file objects from the provided dict."""
     files = {}
     for key, value in d.items():
@@ -23,7 +24,7 @@ def extract_files_from_dict(d):
     return files
 
 
-def remove_files_from_dict(d):
+def remove_files_from_dict(d: dict) -> dict:
     """Return the provided dict with any file objects removed."""
     file_free = {}
     for key, value in d.items():
@@ -40,7 +41,7 @@ def remove_files_from_dict(d):
     return file_free
 
 
-def namespaced_query_string(d, prefix=""):
+def namespaced_query_string(d: dict, prefix: str = "") -> dict:
     """Transform a nested dict into a string with namespaced query params."""
     qs = {}
     prefixed = lambda k: prefix and f"{prefix}[{k}]" or k
@@ -52,7 +53,7 @@ def namespaced_query_string(d, prefix=""):
     return qs
 
 
-def _extract_transport_kwargs(params):
+def _extract_transport_kwargs(params: dict) -> tuple[dict, dict]:
     """Copy params, drop empty values, and split off transport/auth options.
 
     Returns (transport_kwargs, remaining_params) without mutating the input.
@@ -76,7 +77,7 @@ def _extract_transport_kwargs(params):
     return transport, remaining
 
 
-def _encode_body(params):
+def _encode_body(params: dict) -> tuple[dict, dict]:
     """Encode params into (data, files) pairs for the request body."""
     params = hashconversions.to_params(params)
     files = namespaced_query_string(extract_files_from_dict(params))
@@ -84,7 +85,7 @@ def _encode_body(params):
     return data, files
 
 
-def make_request(method, url, params):
+def make_request(method: str, url: str, params: dict) -> requests.Response:
     """Make an HTTP request, formatting params as required."""
     transport, params = _extract_transport_kwargs(params)
     data, files = _encode_body(params)

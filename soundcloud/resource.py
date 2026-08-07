@@ -1,6 +1,8 @@
 import json
 from collections import UserList
 
+import requests
+
 
 class Resource:
     """Object wrapper for resources.
@@ -49,7 +51,7 @@ class ResourceList(UserList):
         raise AttributeError(name)
 
 
-def wrapped_resource(response) -> Resource | ResourceList:
+def wrapped_resource(response: requests.Response) -> Resource | ResourceList:
     """Return a response wrapped in the appropriate wrapper type.
 
     Lists will be returned as a ```ResourceList``` instance,
@@ -69,6 +71,7 @@ def wrapped_resource(response) -> Resource | ResourceList:
         result = Resource(content)
         if hasattr(result, "collection"):
             setattr(result, "collection", ResourceList(result.collection))  # noqa: B010
+
     # response metadata is copied on, but must never shadow payload fields
     if not isinstance(result, Resource) or "raw_data" not in result.obj:
         setattr(result, "raw_data", response_content)  # noqa: B010

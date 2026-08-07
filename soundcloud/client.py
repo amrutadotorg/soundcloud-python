@@ -41,11 +41,11 @@ class Client:
         self.flow.prepare(self)
         self.credential = self.flow.resolve(self)
 
-    def _generate_code_verifier(self):
+    def _generate_code_verifier(self) -> str:
         # token_urlsafe(96) always yields a 128-char URL-safe string (RFC 7636: 43-128)
         return secrets.token_urlsafe(96)
 
-    def _generate_code_challenge(self, verifier):
+    def _generate_code_challenge(self, verifier: str) -> str:
         if not verifier:
             raise ValueError("code_verifier cannot be empty")
         sha256_hash = hashlib.sha256(verifier.encode("ascii")).digest()
@@ -168,25 +168,27 @@ class Client:
         if hasattr(self.token, "refresh_token") and self.token.refresh_token:
             self.options["refresh_token"] = self.token.refresh_token
 
-    def _request(self, method, resource, **kwargs):
+    def _request(
+        self, method: str, resource: str, **kwargs: Any
+    ) -> Resource | ResourceList:
         url = self._resolve_resource_name(resource)
         self.credential.apply(kwargs)
         for key, value in self._transport_options().items():
             kwargs.setdefault(key, value)
         return wrapped_resource(make_request(method, url, kwargs))
 
-    def __getattr__(self, name, **kwargs) -> Any:
+    def __getattr__(self, name: str, **kwargs: Any) -> Any:
         if name not in ("get", "post", "put", "head", "delete"):
             raise AttributeError
         return partial(self._request, name, **kwargs)
 
-    def _resolve_resource_name(self, name):
+    def _resolve_resource_name(self, name: str) -> str:
         if name[:4] == "http":
             return name
         name = name.rstrip("/").lstrip("/")
         return f"{self.scheme}{self.host}/{name}"
 
-    def _redirect_uri(self):
+    def _redirect_uri(self) -> str:
         redirect_uri = self.options.get(
             "redirect_uri", self.options.get("redirect_url", None)
         )

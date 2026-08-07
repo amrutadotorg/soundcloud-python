@@ -24,7 +24,7 @@ This project is **not affiliated with SoundCloud Ltd.**
 Requirements
 ------------
 
-- Python 3.11+
+- Python 3.14+
 - requests
 - pytest (for running tests)
 

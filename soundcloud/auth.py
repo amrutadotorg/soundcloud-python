@@ -1,3 +1,9 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from soundcloud.client import Client
+
+
 class Credential:
     """Authenticates a single request via ``apply`` on the request kwargs."""
 
@@ -46,10 +52,10 @@ class AuthFlow:
             return RefreshTokenFlow()
         return ClientIdFlow(options["client_id"])
 
-    def prepare(self, client) -> None:
+    def prepare(self, client: Client) -> None:
         """Run construction-time side effects (verifier, token refresh)."""
 
-    def resolve(self, client) -> Credential:
+    def resolve(self, client: Client) -> Credential:
         raise NotImplementedError
 
 
@@ -59,7 +65,7 @@ class ClientIdFlow(AuthFlow):
     def __init__(self, client_id: str):
         self.client_id = client_id
 
-    def resolve(self, client) -> Credential:
+    def resolve(self, client: Client) -> Credential:
         return ClientIdCredential(self.client_id)
 
 
@@ -69,7 +75,7 @@ class StaticTokenFlow(AuthFlow):
     def __init__(self, access_token: str):
         self.access_token = access_token
 
-    def resolve(self, client) -> Credential:
+    def resolve(self, client: Client) -> Credential:
         return AccessTokenCredential(self.access_token)
 
 
@@ -79,19 +85,21 @@ class AuthorizationCodeFlow(AuthFlow):
     def __init__(self, options: dict):
         self.options = options
 
-    def prepare(self, client) -> None:
+    def prepare(self, client: Client) -> None:
         client.code_verifier = client._generate_code_verifier()
         client._authorization_code_flow()
 
-    def resolve(self, client) -> Credential:
+    def resolve(self, client: Client) -> Credential:
         return ClientIdCredential(self.options["client_id"])
 
 
 class RefreshTokenFlow(AuthFlow):
     """OAuth 2.1: rotate the refresh_token into a fresh access_token."""
 
-    def prepare(self, client) -> None:
+    def prepare(self, client: Client) -> None:
         client._refresh_token_flow()
 
-    def resolve(self, client) -> Credential:
-        return AccessTokenCredential(client.access_token)
+    def resolve(self, client: Client) -> Credential:
+        access_token = client.access_token
+        assert access_token is not None
+        return AccessTokenCredential(access_token)

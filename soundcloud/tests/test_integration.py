@@ -164,7 +164,7 @@ def test_exchange_token(client_id, client_secret, redirect_uri):
     if not code:
         try:
             code = input("3. Paste the authorization code: ").strip()
-        except (EOFError, OSError):
+        except EOFError, OSError:
             pytest.skip("No interactive terminal and SOUNDCLOUD_AUTH_CODE not set")
 
     token = client.exchange_token(code)

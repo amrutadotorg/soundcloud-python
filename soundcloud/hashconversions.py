@@ -1,12 +1,13 @@
 import collections
+from typing import Any
 
 
-def to_params(hash):
+def to_params(hash: dict) -> dict:
     normalized = [normalize_param(k, v) for (k, v) in hash.items()]
     return {k: v for d in normalized for (k, v) in d.items()}
 
 
-def normalize_param(key, value):
+def normalize_param(key: str, value: Any) -> dict:
     """Convert a set of key, value parameters into a dictionary suitable for
     passing into requests. This will convert lists into the syntax required
     by SoundCloud. Heavily lifted from HTTParty.
