@@ -139,9 +139,22 @@ def test_timeout_from_client_options(mock_get):
 
     client.get("tracks", limit=5)
 
-    url, kwargs = mock_get.call_args
+    _, kwargs = mock_get.call_args
     assert kwargs["timeout"] == 30
-    assert "timeout" not in url
+    assert "timeout" not in mock_get.call_args.args[0]
+
+
+@mock.patch("requests.get")
+def test_per_call_timeout_overrides_client_options(mock_get):
+    """A per-call timeout must not be dropped by client-level options."""
+    client = soundcloud.Client(client_id="foo")
+    mock_get.return_value = MockResponse("{}")
+
+    client.get("tracks", timeout=30)
+
+    _, kwargs = mock_get.call_args
+    assert kwargs["timeout"] == 30
+    assert "timeout" not in mock_get.call_args.args[0]
 
 
 @mock.patch("requests.get")

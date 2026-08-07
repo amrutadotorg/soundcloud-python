@@ -29,7 +29,7 @@ class AuthFlow:
     """Describes how a Client obtains its credential."""
 
     @classmethod
-    def from_options(cls, options: dict) -> "AuthFlow":
+    def from_options(cls, options: dict) -> AuthFlow:
         if options.get("access_token"):
             return StaticTokenFlow(options["access_token"])
         if "client_id" not in options:
@@ -39,8 +39,10 @@ class AuthFlow:
         if all(
             k in options for k in ("client_id", "client_secret", "username", "password")
         ):
-            raise DeprecationWarning("Password flow is deprecated.")
+            raise NotImplementedError("Password flow was removed in OAuth 2.1.")
         if "refresh_token" in options:
+            if not options["refresh_token"]:
+                raise ValueError("refresh_token cannot be empty")
             return RefreshTokenFlow()
         return ClientIdFlow(options["client_id"])
 

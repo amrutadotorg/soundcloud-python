@@ -147,6 +147,24 @@ def test_exchange_code_expiring(mock_post, mock_secrets):
 
 @mock.patch("secrets.token_urlsafe")
 @mock.patch("requests.post")
+def test_exchange_token_persists_refresh_token(mock_post, mock_secrets):
+    """The rotated refresh_token from a code exchange lands in client.options."""
+    mock_secrets.return_value = MOCK_VERIFIER
+
+    with expiring_token_response(mock_post):
+        client = soundcloud.Client(
+            client_id="foo",
+            client_secret="bar",
+            redirect_uri="https://example.com/callback",
+        )
+
+        client.exchange_token("this-is-a-code")
+
+    assert client.options["refresh_token"] == "refresh-1234"
+
+
+@mock.patch("secrets.token_urlsafe")
+@mock.patch("requests.post")
 def test_refresh_token_flow_with_rotation(mock_post, mock_secrets):
     """
     Test refresh token flow with token rotation.
@@ -189,13 +207,19 @@ def test_password_credentials_flow_deprecated():
     """
     OAuth 2.1: Resource Owner Password Credentials flow is removed.
     """
-    with pytest.raises(DeprecationWarning):
+    with pytest.raises(NotImplementedError):
         soundcloud.Client(
             client_id="foo",
             client_secret="bar",
             username="user",
             password="pass",
         )
+
+
+def test_empty_refresh_token_raises_error():
+    """A falsy refresh_token must fail fast instead of a nonsense request."""
+    with pytest.raises(ValueError):
+        soundcloud.Client(client_id="foo", refresh_token=None)
 
 
 @mock.patch("secrets.token_urlsafe")
@@ -333,6 +357,25 @@ def test_client_credentials_token(mock_post):
     assert client.options["refresh_token"] == "rt-5678"
     _, kwargs = mock_post.call_args
     assert kwargs["data"] == {"grant_type": "client_credentials"}
+    assert kwargs["headers"]["Authorization"].startswith("Basic ")
+
+
+@mock.patch("requests.post")
+def test_client_credentials_forwards_transport_options(mock_post):
+    """client_credentials must honor timeout/proxies/verify and send a User-Agent."""
+    mock_post.return_value = MockResponse(
+        '{"access_token":"app-1234","refresh_token":"rt-5678","expires_in":3599,"scope":""}'
+    )
+    client = soundcloud.Client(
+        client_id="foo", client_secret="bar", timeout=30, proxies={"http": "proxy:1234"}
+    )
+
+    client.client_credentials_token()
+
+    _, kwargs = mock_post.call_args
+    assert kwargs["timeout"] == 30
+    assert kwargs["proxies"] == {"http": "proxy:1234"}
+    assert kwargs["headers"]["User-Agent"] == soundcloud.USER_AGENT
     assert kwargs["headers"]["Authorization"].startswith("Basic ")
 
 

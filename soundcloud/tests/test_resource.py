@@ -37,3 +37,24 @@ def test_properties_copied():
     assert resource.reason == "OK"
     assert resource.encoding == "utf-8"
     assert resource.url == "http://example.com"
+
+
+def test_payload_fields_not_shadowed():
+    """Response metadata must not clobber payload fields of the same name."""
+    response = MockResponse(
+        json.dumps(
+            {
+                "url": "https://soundcloud.com/user/profile",
+                "status_code": "custom-code",
+                "reason": "custom-reason",
+            }
+        ),
+        encoding="utf-8",
+        status_code=200,
+        reason="OK",
+        url="http://example.com",
+    )
+    resource = wrapped_resource(response)
+    assert resource.url == "https://soundcloud.com/user/profile"
+    assert resource.status_code == "custom-code"
+    assert resource.reason == "custom-reason"

@@ -108,7 +108,7 @@ def make_request(method, url, params):
 
     if method == "get":
         kwargs["headers"]["Accept"] = "application/json"
-        qs = urlencode(data)
+        qs = urlencode(data, doseq=True)
         if "?" in url:
             url = f"{url}&{qs}"
         else:

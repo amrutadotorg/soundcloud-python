@@ -123,6 +123,21 @@ def test_make_request_passes_timeout(mock_get):
         "get", "https://api.soundcloud.com/tracks", {"client_id": "foo", "timeout": 30}
     )
 
-    url, kwargs = mock_get.call_args
+    _, kwargs = mock_get.call_args
     assert kwargs["timeout"] == 30
-    assert "timeout" not in url
+    assert "timeout" not in mock_get.call_args.args[0]
+
+
+@mock.patch("requests.get")
+def test_make_request_get_repeats_list_params(mock_get):
+    """List params on GET become repeated query params, not a stringified list."""
+    mock_get.return_value = MockResponse("{}")
+
+    make_request(
+        "get", "https://api.soundcloud.com/tracks", {"client_id": "foo", "ids": [1, 2]}
+    )
+
+    _url, _kwargs = mock_get.call_args
+    assert mock_get.call_args.args[0] == (
+        "https://api.soundcloud.com/tracks?client_id=foo&ids%5B%5D=1&ids%5B%5D=2"
+    )

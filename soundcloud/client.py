@@ -5,8 +5,6 @@ from functools import partial
 from typing import Any
 from urllib.parse import urlencode
 
-import requests
-
 from soundcloud.auth import AccessTokenCredential, AuthFlow
 from soundcloud.request import make_request
 from soundcloud.resource import Resource, ResourceList, wrapped_resource
@@ -44,12 +42,8 @@ class Client:
         self.credential = self.flow.resolve(self)
 
     def _generate_code_verifier(self):
-        verifier = secrets.token_urlsafe(96)
-        if len(verifier) < self.MIN_VERIFIER_LENGTH:
-            verifier = secrets.token_urlsafe(self.MIN_VERIFIER_LENGTH)
-        elif len(verifier) > self.MAX_VERIFIER_LENGTH:
-            verifier = verifier[: self.MAX_VERIFIER_LENGTH]
-        return verifier
+        # token_urlsafe(96) always yields a 128-char URL-safe string (RFC 7636: 43-128)
+        return secrets.token_urlsafe(96)
 
     def _generate_code_challenge(self, verifier):
         if not verifier:
@@ -96,6 +90,8 @@ class Client:
         self.token = self._set_token(
             wrapped_resource(make_request("post", url, options))
         )
+        if hasattr(self.token, "refresh_token") and self.token.refresh_token:
+            self.options["refresh_token"] = self.token.refresh_token
         self.code_verifier = None
         return self.token
 
@@ -122,20 +118,10 @@ class Client:
             "Authorization": f"Basic {basic}",
         }
 
-        transport = self._transport_options()
-        request_kwargs = {}
-        if transport["verify_ssl"] is False:
-            request_kwargs["verify"] = False
-        if transport["proxies"]:
-            request_kwargs["proxies"] = transport["proxies"]
+        options = {"grant_type": "client_credentials", "headers": headers}
+        options.update(self._transport_options())
 
-        response = requests.post(
-            url,
-            headers=headers,
-            data={"grant_type": "client_credentials"},
-            **request_kwargs,
-        )
-        response.raise_for_status()
+        response = make_request("post", url, options)
         token = self._set_token(wrapped_resource(response))
         if hasattr(token, "refresh_token") and token.refresh_token:
             self.options["refresh_token"] = token.refresh_token
@@ -185,7 +171,8 @@ class Client:
     def _request(self, method, resource, **kwargs):
         url = self._resolve_resource_name(resource)
         self.credential.apply(kwargs)
-        kwargs.update(self._transport_options())
+        for key, value in self._transport_options().items():
+            kwargs.setdefault(key, value)
         return wrapped_resource(make_request(method, url, kwargs))
 
     def __getattr__(self, name, **kwargs) -> Any:

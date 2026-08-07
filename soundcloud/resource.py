@@ -69,9 +69,13 @@ def wrapped_resource(response) -> Resource | ResourceList:
         result = Resource(content)
         if hasattr(result, "collection"):
             setattr(result, "collection", ResourceList(result.collection))  # noqa: B010
-    setattr(result, "raw_data", response_content)  # noqa: B010
+    # response metadata is copied on, but must never shadow payload fields
+    if not isinstance(result, Resource) or "raw_data" not in result.obj:
+        setattr(result, "raw_data", response_content)  # noqa: B010
 
     for attr in ("encoding", "url", "status_code", "reason"):
+        if isinstance(result, Resource) and attr in result.obj:
+            continue
         setattr(result, attr, getattr(response, attr))
 
     return result
